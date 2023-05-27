@@ -744,7 +744,7 @@ def advice(update, context):
 def main():
     # Создаём объект updater.
     # Вместо слова "TOKEN" надо разместить полученный от @BotFather токен
-    updater = Updater('1719672003:AAGr9uZu4-9thLycNUyaX39-dGjpHS7v8p8', use_context=True)
+    updater = Updater('5894989975:AAHQ3q-2pnb2GvrdkmUDbfVfyHGthfHHCs4', use_context=True)
     # Получаем из него диспетчер сообщений.
     dp = updater.dispatcher
 
