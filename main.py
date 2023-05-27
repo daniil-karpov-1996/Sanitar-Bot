@@ -1,7 +1,7 @@
 # Импортируем необходимые библиотеки.
 from telegram.ext import Updater, MessageHandler, Filters
 from telegram.ext import CommandHandler
-from telegram import ReplyKeyboardMarkup
+from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
 import requests
 import os
 import datetime
@@ -10,10 +10,18 @@ import os.path
 import sqlite3
 from random import choice
 
-city = ""
-stage = 0
+city = {}
+users_active = {}
 check_started = 0
-answer = [0, 0, 0]
+ill_answer = {}
+bekh_stage = {}
+bekh_answer = {}
+taylor_stage = {}
+taylor_answer = {}
+dass21_stage = {}
+dass21_answer = {}
+
+
 advices = [["Принимайте холодный душ", "Холодный душ раз в день  улучшает кровообращение, ускоряет обмен веществ,"
                                        " сужает поры, повышает иммунитет и помогает восстановиться после "
                                        "интенсивных физических упражнений."],
@@ -124,8 +132,7 @@ def text_request(update, context):
     # У message есть поле text, содержащее текст полученного сообщения,
     # а также метод reply_text(str),
     # отсылающий ответ пользователю, от которого получено сообщение.
-    update.message.reply_text(
-        "Вы ввели несуществующую команду. Попробуйте ещё раз.")
+    update.message.reply_text("Вы ввели несуществующую команду. Попробуйте ещё раз.")
 
 
 # Напишем соответствующие функции для обработки команд.
@@ -142,136 +149,415 @@ def start(update, context):
     update.message.reply_text(
         "Для получения большего количества информации введите команду /help")
 
+def check_num_for_bekh(text):
+    checking_num = text
+    k=0
+    while k<10:
+        if checking_num.isnumeric() and len(checking_num)==1:
+            if int(checking_num)>=0 and int(checking_num)<=3:
+                return int(checking_num)
+    return 0
 
-def choose(update, context):
-    a = context.args[0]
+def start_test(update, context):
+    bekh_test_keyboard = [['/start_ill_test', '/start_bekh_test'],
+                          ['/start_taylor_test', '/start_dass21_test']]
+    bekh_test_markup = ReplyKeyboardMarkup(bekh_test_keyboard, one_time_keyboard=True)
+    update.message.reply_text("""вы можете пройти один из наших тестов на физическое или психическое
+    состояние здоровья для этого выберите соответствующий тест при помощи одной из команд
+    /start_ill_test - тест на болезни
+    /start_bekh_test - тест бека на эмоциональное состояние
+    /start_taylor_test - тест тейлора на эмоциональное состояние
+    /start_dass21_test на эмоциональное состояние
+    """, reply_markup=bekh_test_markup)
+
+
+def start_bekh_test(update, context):
+    global bekh_answer, bekh_stage
+    bekh_test_keyboard = [['/bekh_test 0', '/bekh_test 1'],
+                        ['/bekh_test 2', '/bekh_test 3']]
+    bekh_test_markup = ReplyKeyboardMarkup(bekh_test_keyboard)
+    update.message.reply_text("""Опросник состоит из 21 пункта. Каждый пункт включает один из симптомов тревоги
+                телесных или психических. Оцените каждый пункт по шкале от 0 до 3 включительно, где 0 - 
+                симптом не беспокиол, 3 - симптом беспокоил очень часто. Примерно время тестирования займёт 10 минут.
+                Информация не является медицинским диагнозом. По поводу результатов теста необходимо
+                проконсультироваться со специалистом""", reply_markup=bekh_test_markup)
+    update.message.reply_text("""Чтобы выбрать вариант напишите /bekh_test номер варианта
+    или воспользуйтесь кнопками снизу""")
+    bekh_answer[update.message.chat_id] = 0
+    bekh_stage[update.message.chat_id] = 0
+    bekh_test(update, context='start')
+
+def bekh_test(update, context):
+    questions = ['Ощущение онемения или покалывания в теле', 'Ощущение жары', 'Дрожь в ногах',
+                 'Неспособность расслабиться', 'Страх, что произойдет самое плохое',
+                 'Головокружение или ощущение легкости в голове', 'Ускоренное сердцебиение', 'Неустойчивость',
+                 'Ощущение ужаса', 'Нервозность', 'Дрожь в руках', 'Ощущение удушья',
+                 'Шаткость походки', 'Страх утраты контроля', 'Затрудненность дыхания',
+                 'Страх смерти', 'Испуг', 'Желудочно-кишечные расстройства', 'Обмороки', 'Приливы крови к лицу',
+                 'Усиление потоотделения (не связанное с жарой)']
+    if context == 'start':
+        i = bekh_stage[update.message.chat_id]
+        update.message.reply_text(str(i + 1) + '/21 ' + questions[i])
+        bekh_stage[update.message.chat_id] += 1
+    if context != 'start':
+        if bekh_stage[update.message.chat_id] == 21:
+            update.message.reply_text('Конец теста', reply_markup=ReplyKeyboardRemove())
+            time.sleep(1)
+            update.message.reply_text('Ваш результат:')
+            time.sleep(1)
+            if bekh_answer[update.message.chat_id]<10:
+                update.message.reply_text('У вас отсутсвует тревого')
+            elif bekh_answer[update.message.chat_id]<22:
+                update.message.reply_text('У вас незначительный уровень тревоги')
+            elif bekh_answer[update.message.chat_id]<36:
+                update.message.reply_text('У вас средней уровень тревоги, советуем обратиться к специалисту')
+            else:
+                update.message.reply_text('У вас высокий уровеноь тревоги, советуем незамедлительно обратиться к врачу')
+        else:
+            i = bekh_stage[update.message.chat_id]
+            update.message.reply_text(str(i + 1) + '/21 ' + questions[i])
+            bekh_answer[update.message.chat_id] += check_num_for_bekh(context.args[0])
+            bekh_stage[update.message.chat_id] += 1
+
+
+def start_taylor_test(update, context):
+    global taylor_answer, taylor_stage
+    taylor_test_keyboard = [['/taylor_test да', '/taylor_test нет']]
+    taylor_test_markup = ReplyKeyboardMarkup(taylor_test_keyboard)
+    update.message.reply_text('''Опросник состоит из 50 вопросов, на которые следует отвечать только да или нет. Опросник покажет
+    ваш уровень трежности. Информация не является медицинским диагнозом. По поводу результатов теста необходимо
+    проконсультироваться со специалистом''', reply_markup=taylor_test_markup)
+    update.message.reply_text("""Чтобы выбрать вариант напишите /taylor_test вариант ответа:да или нет.
+    или воспользуйтесь кнопками снизу""")
+    taylor_answer[update.message.chat_id] = 0
+    taylor_stage[update.message.chat_id] = 0
+    taylor_test(update, context='start')
+
+def taylor_test(update, context):
+    questions = ['Обычно я спокоен и вывести меня из себя нелегко.',
+'Мои нервы расстроены не более, чем у других людей.',
+'У меня редко бывают запоры.',
+'У меня редко бывают головные боли.',
+'Я редко устаю.',
+'Я почти всегда чувствую себя вполне счастливым.',
+'Я уверен в себе.',
+'Практически я никогда не краснею.',
+'По сравнению со своими друзьями я считаю себя вполне смелым человеком.',
+'Я краснею не чаще, чем другие.',
+'У меня редко бывает сердцебиение.',
+'Обычно мои руки достаточно теплые.',
+'Я застенчив не более чем другие.',
+'Мне не хватает уверенности в себе.',
+'Порой мне кажется, что я ни на что не годен.',
+'У меня бывают периоды такого беспокойства, что я не могу усидеть на месте.',
+'Мой желудок сильно беспокоит меня.',
+'У меня хватает духа вынести все предстоящие трудности.',
+'Я хотел бы быть таким же счастливым, как другие.',
+'Мне кажется порой, что передо мной нагромождены такие трудности, которые мне не преодолеть.',
+'Мне нередко снятся кошмарные сны.',
+'Я замечаю, что мои руки начинают дрожать, когда я пытаюсь что-либо сделать.',
+'У меня чрезвычайно беспокойный и прерывистый сон.',
+'Меня весьма тревожат возможные неудачи.',
+'Мне приходилось испытывать страх в тех случаях, когда я точно знал, что мне ничто не угрожает.',
+'Мне трудно сосредоточиться на работе или на каком-либо задании.',
+'Я работаю с большим напряжением.',
+'Я легко прихожу в замешательство.',
+'Почти все время испытываю тревогу из-за кого-либо или из-за чего-либо.',
+'Я склонен принимать все слишком всерьез.',
+'Я часто плачу.',
+'Меня нередко мучают приступы рвоты и тошноты.',
+'Раз в месяц или чаще у меня бывает расстройство желудка.',
+'Я часто боюсь, что вот-вот покраснею.',
+'Мне очень трудно сосредоточиться на чем-либо.',
+'Мое материальное положение весьма беспокоят меня.',
+'Нередко я думаю о таких вещах, о которых ни с кем не хотелось бы говорить.',
+'У меня бывали периоды, когда тревога лишала меня сна.',
+'Временами, когда я нахожусь в замешательстве, у меня появляется сильная потливость, что очень смущает меня.',
+'Даже в холодные дни я легко потею.',
+'Временами я становлюсь таким возбужденным, что мне трудно заснуть.',
+'Я - человек легко возбудимый.',
+'Временами я чувствую себя совершенно бесполезным.',
+'Порой мне кажется, что мои нервы сильно расшатаны, и я вот - вот выйду из себя.',
+'Я часто ловлю себя на том, что меня что-то тревожит.',
+'Я гораздо чувствительнее, чем большинство других людей.',
+'Я почти все время испытываю чувство голода.',
+'Ожидание меня нервирует.',
+'Жизнь для меня связана с необычным напряжением.',
+'Ожидание всегда нервирует меня.']
+    yes_balls = [14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28,
+                  29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50]
+    no_balls = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+    if context == 'start':
+        i = taylor_stage[update.message.chat_id]
+        update.message.reply_text(str(i+1) + '/50 ' + questions[i])
+        taylor_stage[update.message.chat_id] += 1
+    else:
+        if taylor_stage[update.message.chat_id] == 50:
+            update.message.reply_text('Конец теста', reply_markup=ReplyKeyboardRemove())
+            time.sleep(1)
+            update.message.reply_text('Ваш результат:')
+            time.sleep(1)
+            if taylor_answer[update.message.chat_id] < 6:
+                update.message.reply_text('У вас низкий уровень тревоги или её нет')
+            elif taylor_answer[update.message.chat_id] < 15:
+                update.message.reply_text('У вас средний уровень тревоги с тенденцией к низкому. Советуем больше отдыхать')
+            elif taylor_answer[update.message.chat_id] < 25:
+                update.message.reply_text('У вас средний увроень тревоги с тенденцией к высокому. Советуем обратиться к специалисту')
+            elif taylor_answer[update.message.chat_id] < 40:
+                update.message.reply_text('У вас высокий уровень тревоги. Советуем в ближайшее время обратиться к специалисту')
+            else:
+                update.message.reply_text('У вас очень высокий уровень тревоги. Обратитесь к специалисту как можно скорее')
+        else:
+            i = taylor_stage[update.message.chat_id]
+            update.message.reply_text(str(i + 1) + '/50 ' + questions[i])
+            taylor_stage[update.message.chat_id] += 1
+            text = context.args[0]
+            if text.lower()=='да':
+                text = 1
+            else:
+                text = 0
+            if (text == 1 and ((i+1) in yes_balls)) or (text == 0 and ((i+1) in no_balls)):
+                taylor_answer[update.message.chat_id]+=1
+
+
+def start_dass21_test(update, context):
+    global dass21_answer, dass21_stage
+    dass21_test_keyboard = [['/dass21_test 0', '/dass21_test 1'],
+                          ['/dass21_test 2', '/dass21_test 3']]
+    dass21_test_markup = ReplyKeyboardMarkup(dass21_test_keyboard)
+    update.message.reply_text('''Внимательно прочитайте каждое утверждение и выберите цифру от 0 до 3, которая лучше всего
+    описывает то, как утверждение соотносится с вами.
+     0 - вообще не относится ко мне,
+     1 - Относилось ко мне до некоторой степени или некоторое время,
+     2 - Относилось ко мне в значительной мере или значительную часть времени, 
+     3 -  Относилось ко мне полностью или большую часть времени
+    Не размышляйте слишком долго, в тесте нет «правильных» или
+    «неправильных» ответов. Результат не является клиническим диангнозом и требует консультации специалисти''',
+    reply_markup=dass21_test_markup)
+    update.message.reply_text("""Чтобы выбрать вариант напишите /dass21_test номер варианта
+        или воспользуйтесь кнопками снизу""")
+    dass21_answer[update.message.chat_id] = [0, 0, 0]
+    dass21_stage[update.message.chat_id] = 0
+    dass21_test(update, context='start')
+
+def dass21_test(update, context):
+    questions = [
+        'Мне было трудно сбросить напряжение.',
+        'Я ощущал сухость во рту.',
+        'Я вообще не испытывал никаких положительных чувств.',
+        'Я ощущал, что мое дыхание затруднено (например, чрезвычайно быстрое дыхание, одышка в отсутствие физических нагрузок).',
+        'Мне было трудно заставить себя сделать что-либо.',
+        'Я был склонен слишком сильно реагировать на ситуацию.',
+        'Я ощущал тремор (например, в руках).',
+        'Я чувствовал, что трачу слишком много нервной энергии.',
+        'Меня беспокоили ситуации, в которых я могу поддаться панике и вести себя глупо.',
+        'Я чувствовал, что у меня нет ничего впереди.',
+        'Я чувствовал растущее волнение.',
+        'Мне было трудно расслабиться.',
+        'Я чувствовал упадок духа и меланхолию.',
+        'Я нетерпимо относился ко всему, что мешало мне заниматься тем, что я делаю.',
+        'Я ощущал, что я близок к панике.',
+        'Я был не в состоянии проявлять энтузиазм по отношению к чему-либо.',
+        'Я чувствовал, что немногого стою как личность.',
+        'Я чувствовал, что был весьма раздражителен.',
+        'Я замечал, что происходит с моим сердцем без всяких физических нагрузок (например, ощущение усиливающегося сердцебиения или пропущенного удара).',
+        'Я ощущал беспричинный страх.',
+        'Я чувствовал, что жизнь бессмысленна.'
+    ]
+    d_questions = [1, 2, 4, 6, 7, 8, 9, 11, 12, 14, 15, 18, 19, 20]
+    a_questions = [1, 3, 5, 6, 8, 10, 11, 12, 13, 14, 16, 17, 18, 21]
+    s_questions = [2, 3, 4, 5, 7, 9, 10, 13, 15, 16, 17, 19, 20, 21]
+    d_summa = 0
+    a_summa = 0
+    s_summa = 0
+    if context == 'start':
+        i = dass21_stage[update.message.chat_id]
+        update.message.reply_text(str(i + 1) + '/21 ' + questions[i])
+        dass21_stage[update.message.chat_id] += 1
+    else:
+        a_summa = dass21_answer[update.message.chat_id][0]
+        d_summa = dass21_answer[update.message.chat_id][1]
+        s_summa = dass21_answer[update.message.chat_id][2]
+        if dass21_stage[update.message.chat_id] == 21:
+            update.message.reply_text('Конец теста', reply_markup=ReplyKeyboardRemove())
+            time.sleep(1)
+            update.message.reply_text('Ваш результат:')
+            time.sleep(1)
+            if d_summa < 5:
+                update.message.reply_text('У вас нормальный показатель, депрессии нет')
+            elif d_summa < 7:
+                update.message.reply_text('У вас лёгкий показатель депрессии')
+            elif d_summa < 11:
+                update.message.reply_text('У вас средний показатель депрессии')
+            elif d_summa < 14:
+                update.message.reply_text('У вас сильный показатель депрессии')
+            else:
+                update.message.reply_text('У вас очень сильный показатель депрессии')
+
+            if a_summa < 4:
+                update.message.reply_text('У вас нормальный показатель тревожности')
+            elif a_summa < 6:
+                update.message.reply_text('У вас лёгкий покатель тревожности')
+            elif a_summa < 8:
+                update.message.reply_text('У вас средний показатель тревожности')
+            elif a_summa < 10:
+                update.message.reply_text('У вас сильный показатель тревожности')
+            else:
+                update.message.reply_text('У вас очень сильный показатель тревожности')
+
+            if s_summa < 8:
+                update.message.reply_text('У вас нормальный показатель стресса')
+            elif s_summa < 10:
+                update.message.reply_text('У вас лёгкий показатель стресса')
+            elif s_summa < 13:
+                update.message.reply_text('У вас средний показатель стресса')
+            elif s_summa < 17:
+                update.message.reply_text('У вас сильный показатель стресса')
+            else:
+                update.message.reply_text('У вас очень сильный показатель стресса')
+        else:
+            i = dass21_stage[update.message.chat_id]
+            update.message.reply_text(str(i + 1) + '/21 ' + questions[i])
+            dass21_stage[update.message.chat_id] += 1
+            answer = context.args[0]
+            if i + 1 in a_questions:
+                a_summa += int(answer)
+            if i + 1 in d_questions:
+                d_summa += int(answer)
+            if i + 1 in s_questions:
+                s_summa += int(answer)
+            dass21_answer[update.message.chat_id] = [a_summa, d_summa, s_summa]
+
+
+def ill_choose(update, context):
+    if context.args == []:
+        a = -1
+    else:
+        a = context.args[0]
     global check_started
     if check_started == 1:
         ill_check(update, a)
 
 
-def start_test(update, context):
+def start_ill_test(update, context):
+    ill_test_keyboard = [['/ill_choose 0', '/ill_choose 1'],
+                          ['/ill_choose 2', '/ill_choose 3']]
+    ill_test_markup = ReplyKeyboardMarkup(ill_test_keyboard)
+    update.message.reply_text('Сейчас вам нужно будет ответить на несколько вопросов, это поможет нам определить '
+                              'вашу болезнь', reply_markup=ill_test_markup)
+    global users_active
     ill_check(update, '%^%')
 
 
 def ill_check(update, a):
-    global stage, check_started, answer
+    global check_started, ill_answer, users_active
     if a == '%^%':
-        stage = 0
+        users_active[update.message.chat_id] = 0
+        ill_answer[update.message.chat_id] = [0, 0, 0]
         check_started = 1
-    if stage == 0:
-        answer = [0, 0, 0]
-        update.message.reply_text('Сейчас вам нужно будет ответить на несколько вопросов, это поможет нам определить '
-                                  'вашу болезнь')
-        update.message.reply_text('Вам нужно будет выбирать один из 3 вариантов, написав /choose и символ (1,2,3) или '
+    if users_active[update.message.chat_id] == 0:
+        ill_answer[update.message.chat_id] = [0, 0, 0]
+        update.message.reply_text('Вам нужно будет выбирать один из 3 вариантов, написав /ill_choose и символ (1,2,3) или '
                                   'любой другой символ, если ни один симптом не подходит')
         update.message.reply_text('Ухудшение самочувствия')
         update.message.reply_text('1) Постепенное')
         update.message.reply_text('2) Быстрое')
         update.message.reply_text('3) Внезапное')
-        stage += 1
-    elif stage == 1:
+        users_active[update.message.chat_id] += 1
+    elif users_active[update.message.chat_id] == 1:
         if a == '1':
-            answer[0] += 1
+            ill_answer[update.message.chat_id][0] += 1
         elif a == '2':
-            answer[1] += 1
+            ill_answer[update.message.chat_id][1] += 1
         elif a == '3':
-            answer[2] += 1
-        stage += 1
+            ill_answer[update.message.chat_id][2] += 1
         update.message.reply_text('Температура тела')
         update.message.reply_text('1) Около 37.5 градусов')
         update.message.reply_text('2) Около 38.5 градусов')
         update.message.reply_text('3) Больше 39 градусов')
-        stage += 1
-    elif stage == 2:
+        users_active[update.message.chat_id] += 1
+    elif users_active[update.message.chat_id] == 2:
         if a == '1':
-            answer[0] += 1
+            ill_answer[update.message.chat_id][0] += 1
         elif a == '2':
-            answer[1] += 1
+            ill_answer[update.message.chat_id][1] += 1
         elif a == '3':
-            answer[2] += 1
+            ill_answer[update.message.chat_id][2] += 1
         update.message.reply_text('Интоксикация')
         update.message.reply_text('1) Не выражена')
         update.message.reply_text('2) Есть в виде повышенной утомляемости')
         update.message.reply_text('3) Есть, сильный озноб, головная боль, светобоязнь, ломота в теле')
-        stage += 1
-    elif stage == 3:
+        users_active[update.message.chat_id] += 1
+    elif users_active[update.message.chat_id] == 3:
         if a == '1':
-            answer[0] += 1
+            ill_answer[update.message.chat_id][0] += 1
         elif a == '2':
-            answer[1] += 1
+            ill_answer[update.message.chat_id][1] += 1
         elif a == '3':
-            answer[2] += 1
+            ill_answer[update.message.chat_id][2] += 1
         update.message.reply_text('Чихание')
         update.message.reply_text('1) Есть нечасто')
         update.message.reply_text('2) Есть часто')
         update.message.reply_text('3) Нет')
-        stage += 1
-    elif stage == 4:
+        users_active[update.message.chat_id] += 1
+    elif users_active[update.message.chat_id] == 4:
         if a == '1':
-            answer[0] += 1
+            ill_answer[update.message.chat_id][0] += 1
         elif a == '2':
-            answer[1] += 1
+            ill_answer[update.message.chat_id][1] += 1
         elif a == '3':
-            answer[2] += 1
+            ill_answer[update.message.chat_id][2] += 1
         update.message.reply_text('Боль в горле и его покраснение')
         update.message.reply_text('1) Только дискомфорт в горле')
         update.message.reply_text('2) Боль при кашле')
         update.message.reply_text('3) Постоянная боль, усиливающаяся при кашле')
-        stage += 1
-    elif stage == 5:
+        users_active[update.message.chat_id] += 1
+    elif users_active[update.message.chat_id] == 5:
         if a == '1':
-            answer[0] += 1
+            ill_answer[update.message.chat_id][0] += 1
         elif a == '2':
-            answer[1] += 1
+            ill_answer[update.message.chat_id][1] += 1
         elif a == '3':
-            answer[2] += 1
+            ill_answer[update.message.chat_id][2] += 1
         update.message.reply_text('Головная боль')
         update.message.reply_text('1) Отсутствует')
         update.message.reply_text('2) Слабая')
         update.message.reply_text('3) Сильная')
-        stage += 1
-    elif stage == 6:
+        users_active[update.message.chat_id] += 1
+    elif users_active[update.message.chat_id] == 6:
         if a == '1':
-            answer[0] += 1
+            ill_answer[update.message.chat_id][0] += 1
         elif a == '2':
-            answer[1] += 1
+            ill_answer[update.message.chat_id][1] += 1
         elif a == '3':
-            answer[2] += 1
-        update.message.reply_text('Боль в горле и его покраснение')
-        update.message.reply_text('1) Только дискомфорт в горле')
-        update.message.reply_text('2) Боль при кашле')
-        update.message.reply_text('3) Постоянная боль, усиливающаяся при кашле')
-        stage += 1
-    elif stage == 7:
-        if a == '1':
-            answer[0] += 1
-        elif a == '2':
-            answer[1] += 1
-        elif a == '3':
-            answer[2] += 1
+            ill_answer[update.message.chat_id][2] += 1
         update.message.reply_text('Повышенная утомляемость и бессоница')
         update.message.reply_text('1) Отсутствует')
         update.message.reply_text('2) Есть, слабо выражены и связаны с высокой температурой')
         update.message.reply_text('3) Есть, сильно выражены')
-        stage += 1
-    elif stage == 8:
+        users_active[update.message.chat_id] += 1
+    elif users_active[update.message.chat_id] == 7:
         if a == '1':
-            answer[0] += 1
+            ill_answer[update.message.chat_id][0] += 1
         elif a == '2':
-            answer[1] += 1
+            ill_answer[update.message.chat_id][1] += 1
         elif a == '3':
-            answer[2] += 1
-        if answer[0] == answer[1] and answer[1] == answer[2] and answer[0] == 0:
+            ill_answer[update.message.chat_id][2] += 1
+        update.message.reply_text('Конец теста', reply_markup=ReplyKeyboardRemove())
+        time.sleep(1)
+        update.message.reply_text('Ваш результат:')
+        time.sleep(1)
+        if ill_answer[update.message.chat_id][0] == ill_answer[update.message.chat_id][1] and ill_answer[update.message.chat_id][
+            1] == ill_answer[update.message.chat_id][2] and ill_answer[update.message.chat_id][0] == 0:
             update.message.reply_text('Поздравляю! скорее всего вы не болеете респираторными заболеваниями')
-        if max(answer) == answer[0]:
+        if max(ill_answer[update.message.chat_id]) == ill_answer[update.message.chat_id][0]:
             update.message.reply_text('Скорее всего у вас простуда, рекомендуется сходить в аптеку и посоветоваться в'
                                       ' фармацевтом о лекарстве')
             update.message.reply_text('чтобы посмотреть карту аптек используйте команду /get_map название города')
-        elif max(answer) == answer[1]:
+        elif max(ill_answer[update.message.chat_id]) == ill_answer[update.message.chat_id][1]:
             update.message.reply_text('Скорее всего у вас ОРВИ, рекомендуется сходить в больницу к терапевту')
             update.message.reply_text('чтобы посмотреть карту больниц используйте команду /get_map название города')
-        elif max(answer) == answer[2]:
+        elif max(ill_answer[update.message.chat_id]) == ill_answer[update.message.chat_id][2]:
             update.message.reply_text('Скорее всего у вас Грипп, настоятельно рекомендуется сходить в больницу к '
                                       'терапевту для назначения лечения')
             update.message.reply_text('Грипп довольно опасное заболевание, поэтому чем раньше вы начнёте лечение, '
@@ -283,7 +569,7 @@ def add_params(update, context):
     while len(context.args) != 3:
         update.message.reply_text("Вы не ввели не все данные."
                                   " Введите /add_params <верхнее давление> <нижнее давление> <пульс>."
-                                  "Например, /add_params 110 70 40")
+                                  "Например, /add_params 117 77 70")
         return
 
     # Создаём базу данных и таблицу в ней, если её ещё нет
@@ -308,7 +594,6 @@ def add_params(update, context):
         cursor = con.cursor()
         # вставляем данные в таблицу
         date_now = str(datetime.datetime.now())[:19]
-        print(date_now, str(context.args[0]) + "/" + str(context.args[1]), str(context.args[2]))
         cursor.execute("""INSERT INTO human_params(date, pressure, pulse) VALUES(?, ?, ?)""",
                        (date_now, str(context.args[0]) + "/" + str(context.args[1]), str(context.args[2]))).fetchall()
         con.commit()
@@ -337,7 +622,7 @@ def clean_up(update, context):
 
 def bot_help(update, context):
     update.message.reply_text(
-        "Команда /start_test позволяет получить предположение от том, чем вы болеете.")
+        "Команда /start_test позволяет получить предположение о физическом или психическом состоянии здоровья")
     time.sleep(1)
     update.message.reply_text(
         "Команда /get_map позволяет получить карту медицинкских учреждений."
@@ -362,26 +647,6 @@ def bot_help(update, context):
         "Для того, чтобы вернуть начать общение заново, введите команду /start.")
 
 
-def set_med_time(update, context):
-    while len(context.args) != 2:
-        update.message.reply_text("Вы не ввели не все данные."
-                                  " Введите /set_med_time <время напоминания> <дни недели (числа от 0 до 6)>."
-                                  "Например, /set_med_time 18:00 0123456")
-        return
-
-    update.message.reply_text("Просим прощения, эта функция на данный момент находится в разработке.")
-    # Приводим время к виду datetime.time
-    # alarm_time = datetime.time(hour=int(context.args[0][:2]), minute=int(context.args[0][3:]), second=0)
-
-    # Приводим дни недели к нужному виду
-    # days_list = list(context.args[1])
-    # days_tuple = tuple(int(item) for item in days_list)
-    # prompt = update.job_queue.run_daily(reminder, alarm_time, days=days, context=None,
-    #                                     name=None, job_kwargs=None)
-    # context.job_queue.run_daily(reminder, alarm_time, days=days_tuple, context=update.message.chat_id,
-    #                             name=str(update.message.chat_id), job_kwargs=None)
-
-
 def reminder(update, context):
     update.message.reply_text("Не забудьте принять лекарство!")
 
@@ -391,15 +656,11 @@ def get_map(update, context):
         update.message.reply_text("Вы не ввели название города. Введите /get_map <название города>."
                                   "Например, /get_map Москва")
         return
-
+    get_map_keyboard = [['/pharmacy_map', '/hospital_map']]
+    get_map_markup = ReplyKeyboardMarkup(get_map_keyboard, one_time_keyboard=True)
     # Получаем название города в виде аргумента команды
     global city
-    city = context.args[0]
-
-    # Создаём клавиатуру из кнопок
-    get_map_keyboard = [['/pharmacy_map', '/hospital_map'],
-                        ['/start']]
-    get_map_markup = ReplyKeyboardMarkup(get_map_keyboard, one_time_keyboard=True)
+    city[update.message.chat_id] = context.args[0]
 
     update.message.reply_text("Выберите, карту чего вы хотите получить. "
                               "Команда /pharmacy_map - карту аптек, "
@@ -410,11 +671,10 @@ def pharmacy_map(update, context):
     global city
     name_object = "аптека"
     chat_id = update.message.chat_id
-
     update.message.reply_text("Ищу...")
-
     # Создаём и отправляем запрос
-    city_request = "http://geocode-maps.yandex.ru/1.x/?apikey=40d1649f-0493-4b70-98ba-98533de7710b&geocode=" + city \
+    city_request = "http://geocode-maps.yandex.ru/1.x/?apikey=40d1649f-0493-4b70-98ba-98533de7710b&geocode=" + city[
+        update.message.chat_id] \
                    + "&format=json"
     city_response = requests.get(city_request).json()
     city_coord = city_response['response']['GeoObjectCollection']['featureMember'][0]['GeoObject']['Point']['pos']
@@ -429,7 +689,6 @@ def pharmacy_map(update, context):
         coord_object = i['geometry']['coordinates']
         map_request += str(coord_object[0]) + "," + str(coord_object[1]) + ",pm2rdl" + "~"
     map_request = map_request[:-1]
-    print(map_request[:-1])
 
     context.bot.send_photo(
         chat_id,  # Идентификатор чата. Куда посылать картинку.
@@ -438,8 +697,6 @@ def pharmacy_map(update, context):
         map_request,
         caption="Нашёл:"
     )
-
-    city = ""
 
 
 def hospital_map(update, context):
@@ -450,7 +707,8 @@ def hospital_map(update, context):
     update.message.reply_text("Ищу...")
 
     # Создаём и отправляем запрос
-    city_request = "http://geocode-maps.yandex.ru/1.x/?apikey=40d1649f-0493-4b70-98ba-98533de7710b&geocode=" + city \
+    city_request = "http://geocode-maps.yandex.ru/1.x/?apikey=40d1649f-0493-4b70-98ba-98533de7710b&geocode=" + city[
+        update.message.chat_id] \
                    + "&format=json"
     city_response = requests.get(city_request).json()
     city_coord = city_response['response']['GeoObjectCollection']['featureMember'][0]['GeoObject']['Point']['pos']
@@ -473,8 +731,6 @@ def hospital_map(update, context):
         map_request,
         caption="Нашёл:"
     )
-
-    city = ""
 
 
 def advice(update, context):
@@ -489,7 +745,6 @@ def main():
     # Создаём объект updater.
     # Вместо слова "TOKEN" надо разместить полученный от @BotFather токен
     updater = Updater('1719672003:AAGr9uZu4-9thLycNUyaX39-dGjpHS7v8p8', use_context=True)
-
     # Получаем из него диспетчер сообщений.
     dp = updater.dispatcher
 
@@ -505,13 +760,19 @@ def main():
     dp.add_handler(CommandHandler("get_map", get_map, pass_args=True))
     dp.add_handler(CommandHandler("pharmacy_map", pharmacy_map))
     dp.add_handler(CommandHandler("hospital_map", hospital_map))
-    dp.add_handler(CommandHandler("set_med_time", set_med_time, pass_args=True))
-    dp.add_handler(CommandHandler("reminder", reminder))
     dp.add_handler(CommandHandler("get_params", get_params))
     dp.add_handler(CommandHandler("clean_up", clean_up))
-    dp.add_handler(CommandHandler("choose", choose))
+    dp.add_handler(CommandHandler("ill_choose", ill_choose))
     dp.add_handler(CommandHandler("start_test", start_test))
+    dp.add_handler(CommandHandler("start_ill_test", start_ill_test))
+    dp.add_handler(CommandHandler("start_bekh_test", start_bekh_test))
+    dp.add_handler(CommandHandler("bekh_test", bekh_test))
+    dp.add_handler(CommandHandler("start_taylor_test", start_taylor_test))
+    dp.add_handler(CommandHandler("taylor_test", taylor_test))
+    dp.add_handler(CommandHandler("start_dass21_test", start_dass21_test))
+    dp.add_handler(CommandHandler("dass21_test", dass21_test))
     dp.add_handler(CommandHandler("add_params", add_params, pass_args=True))
+    dp.add_handler(CommandHandler("advice", advice))
     dp.add_handler(CommandHandler("advice", advice))
     dp.add_handler(text_handler)
 
@@ -520,7 +781,6 @@ def main():
     # Ждём завершения приложения.
     # (например, получения сигнала SIG_TERM при нажатии клавиш Ctrl+C)
     updater.idle()
-
 
 # Запускаем функцию main() в случае запуска скрипта.
 if __name__ == '__main__':
